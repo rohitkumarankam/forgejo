@@ -185,7 +185,7 @@
 								<span class="shortsha">{{ShortSha .}}</span>
 							</a>
 						{{else}}
-							<a class="primary sha label" href="{{$.RepoLink}}/commit/{{PathEscape .}}">
+							<a class="primary sha label" href="{{CommitLink $.RepoLink .}}">
 								<span class="shortsha">{{ShortSha .}}</span>
 							</a>
 						{{end}}
@@ -195,7 +195,7 @@
 			<div class="item">
 				<span>{{ctx.Locale.Tr "repo.diff.commit"}}</span>
 				{{if .PageIsPullFiles}}
-					{{$commitShaLink := (printf "%s/commit/%s" $.RepoLink (PathEscape .CommitID))}}
+					{{$commitShaLink := (CommitLink $.RepoLink .CommitID)}}
 					<a href="{{$commitShaLink}}" class="ui primary sha label">
 						<span class="shortsha">{{ShortSha .CommitID}}</span>
 					</a>

@@ -34,7 +34,7 @@
 							{{else if $.PageIsPullCommits}}
 								{{$commitShaLink = (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 							{{else if $.Reponame}}
-								{{$commitShaLink = (printf "%s/commit/%s" $commitRepoLink (PathEscape .ID.String))}}
+								{{$commitShaLink = (CommitLink $commitRepoLink (.ID.String|PathEscape))}}
 							{{end}}
 							{{template "repo/shabox" (dict
 								"sha1" .ID.String
@@ -48,7 +48,7 @@
 							{{if $.PageIsWiki}}
 								<span class="commit-summary {{if gt .ParentCount 1}} grey text{{end}}" title="{{.Summary}}">{{.Summary | RenderEmoji $.Context}}</span>
 							{{else}}
-								{{$commitLink:= printf "%s/commit/%s" $commitRepoLink (PathEscape .ID.String)}}
+								{{$commitLink:= CommitLink $commitRepoLink (.ID.String|PathEscape)}}
 								{{if $.PageIsPullCommits}}
 									{{$commitLink = (printf "%s/pulls/%d/commits/%s" $commitRepoLink $.Issue.Index (PathEscape .ID.String))}}
 								{{end}}
@@ -83,7 +83,7 @@
 							<a
 								class="btn interact-bg tw-p-2"
 								data-tooltip-content="{{ctx.Locale.Tr "repo.commits.view_single_diff"}}"
-								href="{{printf "%s/commit/%s?files=%s" $commitRepoLink (PathEscape .ID.String) (PathEscapeSegments $.FileName)}}">
+								href="{{CommitLink $commitRepoLink (.ID.String|PathEscape)}}{{if $.FileName}}?files={{PathEscapeSegments $.FileName}}{{end}}">
 								{{svg "octicon-file-diff"}}
 							</a>
 							{{end}}

@@ -8,7 +8,7 @@
 					<span class="sha" id="{{$commit.ShortRev}}">
 						{{template "repo/shabox" (dict
 							"sha1" $commit.Commit.ID.String
-							"commitLink" (printf "%s/commit/%s" $.RepoLink ($commit.Rev|PathEscape))
+							"commitLink" (CommitLink $.RepoLink $commit.Rev)
 							"signature" $commit.Commit.Signature
 							"verification" $commit.Verification
 						)}}

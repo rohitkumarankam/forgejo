@@ -32,8 +32,9 @@ var UI = struct {
 	ReactionsLookup         container.Set[string] `ini:"-"`
 	CustomEmojis            []string
 	CustomEmojisLookup      container.Set[string] `ini:"-"`
-	SearchRepoDescription   bool
-	OnlyShowRelevantRepos   bool
+	SearchRepoDescription     bool
+	OnlyShowRelevantRepos     bool
+	ForceFileOnlyCommitDiffs  bool
 	ExploreDefaultSort      string `ini:"EXPLORE_PAGING_DEFAULT_SORT"`
 	PreferredTimestampTense string
 
@@ -157,6 +158,7 @@ func loadUIFrom(rootCfg ConfigProvider) {
 	// OnlyShowRelevantRepos=false is important for many private/enterprise instances,
 	// because many private repositories do not have "description/topic", users just want to search by their names.
 	UI.OnlyShowRelevantRepos = sec.Key("ONLY_SHOW_RELEVANT_REPOS").MustBool(false)
+	UI.ForceFileOnlyCommitDiffs = sec.Key("FORCE_FILE_ONLY_COMMIT_DIFFS").MustBool(false)
 
 	UI.ReactionsLookup = make(container.Set[string])
 	for _, reaction := range UI.Reactions {

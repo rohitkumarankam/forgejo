@@ -220,6 +220,9 @@ func NewFuncMap() template.FuncMap {
 
 		"FilenameIsImage": FilenameIsImage,
 		"TabSizeClass":    TabSizeClass,
+
+		// commit links
+		"CommitLink": CommitLink,
 	}
 }
 
@@ -293,4 +296,13 @@ func Eval(tokens ...any) (any, error) {
 
 func FileSizePanic(s int64) string {
 	panic("Usage of FileSize in templates is deprecated in Forgejo. Locale.TrSize should be used instead.")
+}
+
+// CommitLink creates a commit URL with optional file-only parameter
+func CommitLink(repoLink, commitID string) string {
+	link := repoLink + "/commit/" + url.PathEscape(commitID)
+	if setting.UI.ForceFileOnlyCommitDiffs {
+		link += "?file-only=true"
+	}
+	return link
 }
