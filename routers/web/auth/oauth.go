@@ -800,6 +800,16 @@ func handleRefreshToken(ctx *context.Context, form forms.AccessTokenForm, server
 		return
 	}
 
+	// Ensure the refresh token's grant belongs to the requesting client.
+	// This prevents cross-client token usage (RFC 6749 Section 10.4).
+	if grant.ApplicationID != app.ID {
+		handleAccessTokenError(ctx, AccessTokenError{
+			ErrorCode:        AccessTokenErrorCodeInvalidGrant,
+			ErrorDescription: "refresh token was not issued to this client",
+		})
+		return
+	}
+
 	// check if token got already used
 	if setting.OAuth2.InvalidateRefreshTokens && (grant.Counter != token.Counter || token.Counter == 0) {
 		handleAccessTokenError(ctx, AccessTokenError{
@@ -860,6 +870,15 @@ func handleAuthorizationCode(ctx *context.Context, form forms.AccessTokenForm, s
 		})
 		return
 	}
+	// Per RFC 6749 §4.1.3, if redirect_uri was included in the authorization request,
+	// it MUST be identical to the value included in the token request.
+	if authorizationCode.RedirectURI != "" && form.RedirectURI != authorizationCode.RedirectURI {
+		handleAccessTokenError(ctx, AccessTokenError{
+			ErrorCode:        AccessTokenErrorCodeUnauthorizedClient,
+			ErrorDescription: "redirect_uri does not match the authorization request",
+		})
+		return
+	}
 	// check if granted for this application
 	if authorizationCode.Grant.ApplicationID != app.ID {
 		handleAccessTokenError(ctx, AccessTokenError{
@@ -874,6 +893,7 @@ func handleAuthorizationCode(ctx *context.Context, form forms.AccessTokenForm, s
 			ErrorCode:        AccessTokenErrorCodeInvalidRequest,
 			ErrorDescription: "cannot proceed your request",
 		})
+		return
 	}
 	resp, tokenErr := newAccessTokenResponse(ctx, authorizationCode.Grant, serverKey, clientKey)
 	if tokenErr != nil {
