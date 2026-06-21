@@ -263,9 +263,6 @@ func (o *Permissions) Strings() []string {
 		if o.authentication.IsReverseProxyAuthentication() {
 			sa = append(sa, fmt.Sprintf("IsReverseProxyAuthentication(%v)", o.authentication.IsReverseProxyAuthentication()))
 		}
-		if has, oauth2scopes := o.authentication.OAuth2GrantScopes().Get(); has {
-			sa = append(sa, fmt.Sprintf("%T(%s)", oauth2scopes, oauth2scopes))
-		}
 		if has, taskID := o.authentication.ActionsTaskID().Get(); has {
 			sa = append(sa, fmt.Sprintf("ActionsTaskID(%d)", taskID))
 		}
