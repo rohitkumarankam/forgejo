@@ -31,7 +31,7 @@ import (
 	"forgejo.org/modules/translation"
 	app_context "forgejo.org/services/context"
 	doctor "forgejo.org/services/doctor"
-	"forgejo.org/services/migrations"
+	migrations_allowlist "forgejo.org/services/migrations/allowlist"
 	mirror_service "forgejo.org/services/mirror"
 	repo_service "forgejo.org/services/repository"
 	"forgejo.org/tests"
@@ -88,7 +88,7 @@ func TestMirrorPush(t *testing.T) {
 func testMirrorPush(t *testing.T, u *url.URL) {
 	defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 
-	require.NoError(t, migrations.Init())
+	require.NoError(t, migrations_allowlist.Init())
 
 	user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 	srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -220,7 +220,7 @@ func TestSSHPushMirror(t *testing.T) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
 		defer test.MockVariableValue(&setting.SSH.RootPath, t.TempDir())()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -387,7 +387,7 @@ func TestPushMirrorBranchFilterWebUI(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -487,7 +487,7 @@ func TestPushMirrorBranchFilterIntegration(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -576,7 +576,7 @@ func TestPushMirrorSettings(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 2})
@@ -647,7 +647,7 @@ func TestPushMirrorBranchFilterSyncOperations(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -881,7 +881,7 @@ func TestPushMirrorWebUIToAPIIntegration(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, u *url.URL) {
 		defer test.MockVariableValue(&setting.Migrations.AllowLocalNetworks, true)()
 		defer test.MockVariableValue(&setting.Mirror.Enabled, true)()
-		require.NoError(t, migrations.Init())
+		require.NoError(t, migrations_allowlist.Init())
 
 		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
 		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
@@ -1091,5 +1091,49 @@ func TestPushMirrorWebUIToAPIIntegration(t *testing.T) {
 
 			htmlDoc.AssertElement(t, "#push_mirror_branch_filter", true)
 		})
+	})
+}
+
+// Verifies that a push mirror which was created while the remote address was permitted will fail to sync if the
+// AllowedDomains configuration later changes such that the remote URL is no longer permitted.
+func TestMirrorPushAddressCheck(t *testing.T) {
+	// Not using MockVariableValue due to need to undo `migrations_allowlist.Init()`
+	prev := setting.Migrations.AllowedDomains
+	setting.Migrations.AllowedDomains = "127.0.0.1"
+	migrations_allowlist.Init()
+	defer func() {
+		setting.Migrations.AllowedDomains = prev
+		migrations_allowlist.Init()
+	}()
+
+	onApplicationRun(t, func(t *testing.T, u *url.URL) {
+		user := unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: 2})
+		srcRepo := unittest.AssertExistsAndLoadBean(t, &repo_model.Repository{ID: 1})
+
+		mirrorRepo, err := repo_service.CreateRepositoryDirectly(db.DefaultContext, user, user, repo_service.CreateRepoOptions{
+			Name: "test-push-mirror-address-check",
+		})
+		require.NoError(t, err)
+
+		ctx := NewAPITestContext(t, user.LowerName, srcRepo.Name, auth_model.AccessTokenScopeReadRepository)
+
+		// Create the push mirror while localhost is still an allowed migration domain.
+		doCreatePushMirror(ctx, fmt.Sprintf("%s%s/%s", u.String(), url.PathEscape(ctx.Username), url.PathEscape(mirrorRepo.Name)), user.LowerName, userPassword)(t)
+
+		mirrors, _, err := repo_model.GetPushMirrorsByRepoID(db.DefaultContext, srcRepo.ID, db.ListOptions{})
+		require.NoError(t, err)
+		require.Len(t, mirrors, 1)
+
+		// The push should succeed while localhost is permitted.
+		ok := mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
+		assert.True(t, ok, "expected push mirror sync to succeed while the remote URL is permitted")
+
+		// Reset the allowed domains to the default, which does not permit localhost.
+		setting.Migrations.AllowedDomains = prev
+		migrations_allowlist.Init()
+
+		// Re-triggering the push mirror should now fail because the remote URL is no longer permitted.
+		ok = mirror_service.SyncPushMirror(t.Context(), mirrors[0].ID)
+		assert.False(t, ok, "expected push mirror sync to fail because the remote URL is no longer permitted")
 	})
 }
