@@ -212,6 +212,27 @@ func TestPullSquash(t *testing.T) {
 	})
 }
 
+func TestPullSquashLargeMessage(t *testing.T) {
+	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
+		session := loginUser(t, "user1")
+		testRepoFork(t, session, "user2", "repo1", "user1", "repo1")
+		testEditFile(t, session, "user1", "repo1", "master", "README.md", "Hello, World (Edited)\n")
+
+		resp := testPullCreate(t, session, "user1", "repo1", false, "master", "master", "This is a pull title")
+
+		elem := strings.Split(test.RedirectURL(resp), "/")
+		assert.Equal(t, "pulls", elem[3])
+
+		largeMessage := strings.Repeat("a long changelog line for the squashed commit message\n", 5000)
+		require.Greater(t, len(largeMessage), 128*1024)
+
+		testPullMergeForm(t, session, http.StatusOK, elem[1], elem[2], elem[4], optionsPullMerge{
+			"do":                  string(repo_model.MergeStyleSquash),
+			"merge_message_field": largeMessage,
+		})
+	})
+}
+
 func TestPullCleanUpAfterMerge(t *testing.T) {
 	onApplicationRun(t, func(t *testing.T, giteaURL *url.URL) {
 		session := loginUser(t, "user1")
